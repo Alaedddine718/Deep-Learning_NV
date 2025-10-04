@@ -8,7 +8,7 @@ from flask_socketio import SocketIO
 # Usar tf-keras compatible con TF 2.19 (ya instalado)
 import tf_keras as keras
 
-# ✅ Corregido aquí (_file_ con doble guion bajo)
+# ⬇ OJO: aquí va _file_ (dos guiones bajos), NO file
 APP_DIR  = os.path.dirname(_file_)
 ROOT_DIR = os.path.abspath(os.path.join(APP_DIR, ".."))
 MODEL_PATH = os.path.abspath(os.path.join(ROOT_DIR, "models", "mnist_compiled_model.keras"))
@@ -26,11 +26,11 @@ def get_model():
                 f"No existe el modelo en: {MODEL_PATH}\n"
                 "Entrena/guarda en Colab y coloca mnist_compiled_model.keras en /models."
             )
-        # 👇 CARGA LEGACY: evita el error de 'batch_shape' en InputLayer
+        # Carga “legacy” para evitar el error de batch_shape en InputLayer
         _model = keras.models.load_model(
             MODEL_PATH,
-            safe_mode=False,   # permite configs legacy
-            compile=False      # no compilar al cargar
+            safe_mode=False,
+            compile=False
         )
     return _model
 
