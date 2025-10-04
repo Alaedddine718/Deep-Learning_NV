@@ -45,7 +45,7 @@ def predict():
     Espera JSON: {"image": "data:image/png;base64,AAAA..."}
     Devuelve: {"prediction": int, "probs": [10 floats]}
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True) or {} 
     data_url = payload.get("image")
     if not data_url or "," not in data_url:
         return jsonify({"error": "Falta image base64 (dataURL)"}), 400
