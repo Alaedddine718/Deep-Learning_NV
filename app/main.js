@@ -1,65 +1,60 @@
-const canvas = document.getElementById('draw');
+// --- Configuración del canvas ---
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+ctx.fillStyle = "black";
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
 let drawing = false;
-ctx.lineWidth = 18;
-ctx.lineCap = 'round';
-ctx.strokeStyle = '#000';
 
-canvas.addEventListener('mousedown', e => { drawing = true; draw(e); });
-canvas.addEventListener('mouseup',   () => drawing = false);
-canvas.addEventListener('mouseout',  () => drawing = false);
-canvas.addEventListener('mousemove', draw);
+canvas.addEventListener("mousedown", () => { drawing = true; });
+canvas.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
+canvas.addEventListener("mousemove", draw);
 
-function draw(e){
-  if(!drawing) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 0.1, y + 0.1);
-  ctx.stroke();
-  if(window.socket){
-    window.socket.emit('stroke', {points:[[x,y]]});
-  }
+function draw(event) {
+    if (!drawing) return;
+    ctx.lineWidth = 15;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "white";
+
+    ctx.lineTo(event.offsetX, event.offsetY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(event.offsetX, event.offsetY);
 }
 
-document.getElementById('clear').onclick = () => {
-  ctx.clearRect(0,0,canvas.width, canvas.height);
-};
+// --- Botón limpiar ---
+document.getElementById("clearBtn").addEventListener("click", () => {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+});
 
-function canvasToDataURL(){
-  return canvas.toDataURL('image/png');
-}
+// --- Botón predecir ---
+document.getElementById("predictBtn").addEventListener("click", async () => {
+    const imageData = canvas.toDataURL("image/png");
 
-async function predictBase64(dataURL){
-  const res = await fetch('/predict', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({image_base64: dataURL})
-  });
-  return res.json();
-}
+    const formData = new FormData();
+    formData.append("image_base64", imageData);
 
-document.getElementById('predict').onclick = async () => {
-  const dataURL = canvasToDataURL();
-  const out = await predictBase64(dataURL);
-  renderPrediction(out);
-};
+    try {
+        const response = await fetch("/predict", {
+            method: "POST",
+            body: formData
+        });
 
-document.getElementById('uploadBtn').onclick = async () => {
-  const f = document.getElementById('fileInput').files[0];
-  if(!f){ alert('Selecciona un archivo'); return; }
-  const fd = new FormData();
-  fd.append('image', f);
-  const res = await fetch('/predict', {method:'POST', body:fd});
-  const out = await res.json();
-  renderPrediction(out);
-};
+        const data = await response.json();
 
-function renderPrediction(pred){
-  const div = document.getElementById('result');
-  if(pred.error){ div.textContent = pred.error; return; }
-  div.innerHTML = `<h3>Predicción: ${pred.prediction}</h3>`;
-  if(pred.probs){ renderProbsChart(pred.probs); }
-}
+        if (data.error) {
+            alert("Error: " + data.error);
+        } else {
+            // Mostrar predicción final
+            document.getElementById("prediction").innerText =
+                "Predicción: " + data.prediction;
+
+            // Dibujar gráfico de probabilidades
+            renderProbabilities(data.probs);
+        }
+    } catch (err) {
+        console.error("Error en la predicción:", err);
+        alert("Error al comunicarse con el servidor.");
+    }
+});

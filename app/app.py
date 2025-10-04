@@ -1,7 +1,10 @@
 from __future__ import annotations
+
+# --- IMPORTS Y FIX DE PATH ---
 import os, sys
+# Asegura que Python vea la carpeta raíz del proyecto (para importar utils/*)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import os
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from tensorflow.keras.models import load_model
@@ -11,6 +14,7 @@ from PIL import Image
 from utils.preprocessing import base64_to_image, preprocess_digit
 from utils.training_utils import BASE_MODEL_PATH
 
+# --- APP / SOCKET.IO ---
 app = Flask(__name__, static_folder='.', template_folder='.')
 app.config['SECRET_KEY'] = 'dev-secret'
 socketio = SocketIO(app, cors_allowed_origins='*')
@@ -18,12 +22,15 @@ socketio = SocketIO(app, cors_allowed_origins='*')
 APP_DIR = os.path.dirname(__file__)
 T = lambda name: open(os.path.join(APP_DIR, name), 'r', encoding='utf-8').read()
 
+# --- SERVIR ESTÁTICOS DE /app ---
 @app.route('/app/<path:path>')
 def serve_app_static(path):
     return send_from_directory(APP_DIR, path)
 
+# --- CARGA PEREZOSA DEL MODELO ---
 _model = None
 def get_model():
+    """Carga y cachea el modelo .keras una sola vez."""
     global _model
     if _model is None:
         if not os.path.exists(BASE_MODEL_PATH):
@@ -34,6 +41,7 @@ def get_model():
         _model = load_model(BASE_MODEL_PATH)
     return _model
 
+# --- PÁGINAS ---
 @app.route('/')
 def index():
     return T('index.html')
@@ -50,9 +58,20 @@ def register_page():
 def navbar_partial():
     return T('navbar.html')
 
+# --- SALUD (para diagnosticar) ---
+@app.route('/health')
+def health():
+    try:
+        m = get_model()
+        return jsonify(status="ok", model_path=BASE_MODEL_PATH,
+                       layers=len(getattr(m, 'layers', [])))
+    except Exception as e:
+        return jsonify(status="error", error=str(e)), 500
+
+# --- PREDICCIÓN ---
 @app.route('/predict', methods=['POST'])
 def predict():
-    # archivo o dataURL base64
+    # Soporte para archivo subido o dataURL base64
     if 'image' in request.files:
         img = Image.open(request.files['image']).convert('L')
     else:
@@ -68,6 +87,7 @@ def predict():
     pred = int(np.argmax(probs))
     return jsonify({'prediction': pred, 'probs': [float(p) for p in probs]})
 
+# --- SUBIDA SIMPLE (GUARDA EN app/uploads) ---
 @app.route('/upload', methods=['POST'])
 def upload():
     f = request.files.get('image')
@@ -79,11 +99,15 @@ def upload():
     f.save(path)
     return jsonify({'ok': True, 'path': f'uploads/{f.filename}'})
 
+# --- SOCKET.IO DEMO ---
 @socketio.on('stroke')
 def on_stroke(data):
     emit('stroke_ack', {'points': data.get('points', [])}, broadcast=False)
 
+# --- MAIN ---
 if __name__ == '__main__':
+    # Forzar host local para evitar firewall en redes públicas
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    socketio.run(app, host='127.0.0.1', port=port, debug=True)
+
 
