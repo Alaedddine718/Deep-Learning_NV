@@ -8,9 +8,9 @@ __pycache__/
 *.pyd
 
 # Modelos pesados
-models/*.keras
-models/*.onnx
-models/*.h5
+#models/*.keras
+#models/*.onnx
+#models/*.h5
 
 # Subidas temporales
 app/uploads/
