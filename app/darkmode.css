@@ -1,0 +1,30 @@
+/* Estilos adicionales para el modo oscuro */
+
+html[data-theme="dark"] body {
+  background-color: #121212;
+  color: #eaeaea;
+}
+
+html[data-theme="dark"] .panel {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+}
+
+html[data-theme="dark"] .nav {
+  background-color: #1c1c1c;
+}
+
+html[data-theme="dark"] a {
+  color: #90caf9; /* azul clarito */
+}
+
+html[data-theme="dark"] button {
+  background-color: #1976d2;
+  color: white;
+}
+
+html[data-theme="dark"] canvas#draw {
+  background-color: #222;
+  border: 1px solid #555;
+}
+

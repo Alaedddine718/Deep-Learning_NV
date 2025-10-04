@@ -1,0 +1,14 @@
+<nav class="nav">
+  <div class="brand">Deep-Learning · MNIST</div>
+  <ul>
+    <li><a href="/">Demo</a></li>
+    <li><a href="/login">Login</a></li>
+    <li><a href="/register">Registro</a></li>
+    <li><button id="toggle-dark-inline">🌓</button></li>
+  </ul>
+</nav>
+<script>
+  document.getElementById('toggle-dark-inline').addEventListener('click', () => {
+    document.dispatchEvent(new Event('toggle-dark'));
+  });
+</script>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo MNIST · MLP</title>
+  <link rel="stylesheet" href="app/style.css" />
+  <link rel="stylesheet" href="app/darkmode.css" />
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <section class="panel">
+      <h2>🎨 Dibuja un número</h2>
+      <canvas id="draw" width="280" height="280"></canvas>
+      <div class="row">
+        <button id="clear">Limpiar</button>
+        <button id="predict">Predecir</button>
+        <button id="toggle-dark">Dark</button>
+      </div>
+      <div id="result"></div>
+    </section>
+
+    <section class="panel">
+      <h2>📈 Probabilidades</h2>
+      <canvas id="probsChart"></canvas>
+    </section>
+
+    <section class="panel">
+      <h2>🖼️ Subir imagen</h2>
+      <input type="file" id="fileInput" accept="image/*" />
+      <button id="uploadBtn">Subir y Predecir</button>
+    </section>
+  </main>
+
+  <script src="app/darkmode.js"></script>
+  <script src="app/realtime.js"></script>
+  <script src="app/charts.js"></script>
+  <script src="app/main.js"></script>
+  <script>
+    fetch('app/navbar.html').then(r => r.text()).then(html => {
+      document.getElementById('navbar').innerHTML = html;
+    });
+  </script>
+</body>
+</html>
