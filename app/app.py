@@ -1,4 +1,6 @@
 from __future__ import annotations
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
