@@ -1,31 +1,35 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Demo MLP MNIST</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Demo MLP MNIST</title>
+  <link rel="stylesheet" href="app/style.css" />
 </head>
 <body>
-    <h1>Clasificador de Dígitos</h1>
+  <main class="wrap">
+    <h1>Clasificador de Dígitos (MNIST)</h1>
 
-    <!-- Canvas donde dibujas -->
-    <h3>Dibuja un número (0-9)</h3>
-    <canvas id="canvas" width="200" height="200" style="border:1px solid black;"></canvas>
-    <br>
-    <button id="clearBtn">Limpiar</button>
-    <button id="predictBtn">Predecir</button>
+    <section class="panel">
+      <h3>Dibuja un número (0–9)</h3>
+      <canvas id="canvas" width="200" height="200" class="board"></canvas>
+      <div class="row">
+        <button id="clearBtn">Limpiar</button>
+        <button id="predictBtn">Predecir</button>
+      </div>
+      <p id="prediction" class="pred">Predicción: -</p>
+    </section>
 
-    <!-- Resultado de la predicción -->
-    <p id="prediction">Predicción: -</p>
+    <section class="panel">
+      <h3>Probabilidades</h3>
+      <canvas id="probChart" width="480" height="260"></canvas>
+    </section>
+  </main>
 
-    <!-- Gráfico de probabilidades -->
-    <h3>Probabilidades</h3>
-    <canvas id="probChart" width="400" height="200"></canvas>
-
-    <!-- Librerías JS -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="main.js"></script>
-    <script src="charts.js"></script>
+  <!-- Librerías / scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app/main.js"></script>
+  <script src="app/charts.js"></script>
 </body>
 </html>
+
 
