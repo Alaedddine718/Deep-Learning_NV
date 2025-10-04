@@ -1,0 +1,26 @@
+# Entorno virtual
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Modelos pesados
+models/*.keras
+models/*.onnx
+models/*.h5
+
+# Subidas temporales
+app/uploads/
+
+# Claves privadas
+firebase/serviceAccountKey.json
+
+# VS Code
+.vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
