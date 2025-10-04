@@ -1,4 +1,3 @@
-// Mantén una referencia global para poder destruir/redibujar
 window.probChart = null;
 
 function renderProbabilities(probs) {
@@ -9,7 +8,7 @@ function renderProbabilities(probs) {
   window.probChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: [...Array(10).keys()].map(String), // '0'...'9'
+      labels: [...Array(10).keys()].map(String), // "0"..."9"
       datasets: [{
         label: 'Probabilidad',
         data: probs,
@@ -26,3 +25,4 @@ function renderProbabilities(probs) {
     }
   });
 }
+
