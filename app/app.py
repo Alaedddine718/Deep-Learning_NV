@@ -4,14 +4,13 @@
 # Versión: CNN (entrada 28x28x1) con TensorFlow 2.19 + tf.keras
 # Preprocesado robusto: RGBA->L, inversión auto, binarizado,
 # recorte a bbox, centrado, margen, dilatación y resize a 28x28.
-# Además: registro de resultados en Firebase (Firestore).
 # -----------------------------------------------------------
 
 from __future__ import annotations
 import os
 import io
 import base64
-from datetime import datetime
+import sys
 import numpy as np
 from PIL import Image, ImageOps, ImageFilter
 
@@ -21,6 +20,13 @@ from flask import Flask, jsonify, request, send_from_directory
 APP_DIR  = os.path.dirname(__file__)                   # .../app
 ROOT_DIR = os.path.dirname(APP_DIR)                    # raíz del repo
 MODEL_PATH = os.path.join(ROOT_DIR, "models", "mnist_compiled_model.keras")
+
+# >>> AÑADIDO: asegurar que el root del repo está en sys.path
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+# ====== IMPORT DE FIREBASE (paquete local /firebase) ======
+from firebase.firebase_utils import save_prediction_to_firestore
 
 # ====== FLASK ======
 app = Flask(__name__, static_folder=APP_DIR, static_url_path="/app")
@@ -62,7 +68,7 @@ def _to_grayscale(img: Image.Image) -> Image.Image:
 
 def _maybe_invert(img: Image.Image) -> Image.Image:
     """Invierte si el fondo parece claro (MNIST espera fondo negro)."""
-    mean_v = np.array(img, dtype=np.float32).mean()
+    mean_v = np.array(img, dtype=np.float32).mean()  # 0=negro, 255=blanco
     if mean_v > 127:
         img = ImageOps.invert(img)
     return img
@@ -76,19 +82,18 @@ def _crop_to_bbox(img: Image.Image, margin_ratio: float = 0.15) -> Image.Image:
     arr = np.array(img)
     ys, xs = np.where(arr > 0)  # píxeles blancos (dígito)
     if len(xs) == 0 or len(ys) == 0:
-        return Image.new("L", (28, 28), 0)
+        return Image.new("L", (28, 28), 0)  # nada dibujado
 
     x_min, x_max = xs.min(), xs.max()
     y_min, y_max = ys.min(), ys.max()
+
     crop = img.crop((x_min, y_min, x_max + 1, y_max + 1))
 
-    # Cuadrar
     w, h = crop.size
     side = max(w, h)
     sq = Image.new("L", (side, side), 0)
     sq.paste(crop, ((side - w) // 2, (side - h) // 2))
 
-    # Margen
     margin = int(side * margin_ratio)
     out = ImageOps.expand(sq, border=margin, fill=0)
     return out
@@ -119,93 +124,40 @@ def preprocess_png_base64(data_url: str) -> np.ndarray:
     img = img.resize((28, 28), Image.Resampling.BILINEAR)
 
     arr = np.array(img).astype("float32") / 255.0
-    arr = np.expand_dims(arr, axis=-1)  # (28,28,1)
-    arr = np.expand_dims(arr, axis=0)   # (1,28,28,1)
+    arr = np.expand_dims(arr, axis=-1)
+    arr = np.expand_dims(arr, axis=0)
     return arr
-
-# ====== FIREBASE (Firestore) ======
-# Guardamos cada predicción en la colección "predictions".
-FIREBASE_ENABLED = False
-FB_DB = None
-FIREBASE_KEY_PATH = os.path.join(ROOT_DIR, "firebase", "serviceAccountKey.json")
-
-def _init_firebase_if_possible():
-    """Inicializa Firestore si existe la clave y está instalado firebase-admin."""
-    global FIREBASE_ENABLED, FB_DB
-    if FIREBASE_ENABLED or FB_DB is not None:
-        return
-    try:
-        if os.path.isfile(FIREBASE_KEY_PATH):
-            import firebase_admin
-            from firebase_admin import credentials, firestore
-            if not firebase_admin._apps:
-                cred = credentials.Certificate(FIREBASE_KEY_PATH)
-                firebase_admin.initialize_app(cred)
-            FB_DB = firestore.client()
-            FIREBASE_ENABLED = True
-            print(">> [FB] Firestore inicializado ✅")
-        else:
-            print(">> [FB] Clave no encontrada. Se ejecuta sin Firebase.")
-    except Exception as e:
-        print(f">> [FB] Desactivado ({type(e).__name__}): {e}")
-        FIREBASE_ENABLED = False
-        FB_DB = None
-
-def _tensor_to_png_data_url(x_012: np.ndarray) -> str:
-    """Convierte (1,28,28,1) en 'data:image/png;base64,...' (miniatura pequeña)."""
-    img = Image.fromarray((x_012.squeeze() * 255).astype("uint8"), mode="L")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-
-def _log_prediction_to_firestore(x_012: np.ndarray, pred: int, probs: np.ndarray):
-    """Inserta un documento en la colección 'predictions' (si Firebase está activo)."""
-    if not FIREBASE_ENABLED or FB_DB is None:
-        return {"saved": False, "reason": "firebase_disabled"}
-    try:
-        doc = {
-            "created_at": datetime.utcnow().isoformat() + "Z",
-            "client_ip": request.remote_addr,
-            "pred": int(pred),
-            "probs": [float(p) for p in probs.tolist()],
-            # Miniatura del 28x28 para depurar (muy pequeña, segura para Firestore)
-            "thumb_28x28_png": _tensor_to_png_data_url(x_012),
-        }
-        FB_DB.collection("predictions").add(doc)
-        return {"saved": True}
-    except Exception as e:
-        print(f">> [FB] Error al guardar: {e}")
-        return {"saved": False, "reason": str(e)}
 
 # ====== API ======
 @app.route("/predict", methods=["POST"])
 def predict():
     """
     Espera JSON: { "image": "data:image/png;base64,...." }
-    Devuelve predicción y vector de probabilidades, y registra en Firestore si está disponible.
+    Devuelve predicción y vector de probabilidades.
+    Además, guarda el resultado en Firebase.
     """
     data = request.get_json(force=True, silent=True)
     if not data or "image" not in data:
         return jsonify({"error": "Falta el campo 'image' en el cuerpo de la petición."}), 400
 
-    # Preproceso
     x = preprocess_png_base64(data["image"])
-
-    # Modelo
     model = get_model()
+
     probs = model.predict(x, verbose=0)[0].astype(float)  # (10,)
     pred  = int(np.argmax(probs))
 
-    # Firebase (no bloquea si no está configurado)
-    _init_firebase_if_possible()
-    fb_status = _log_prediction_to_firestore(x, pred, probs)
+    # ---- Guardar en Firestore (imagen en [0,1] de 28x28) ----
+    try:
+        x_img01 = x.squeeze().astype("float32")  # (28,28)
+        save_prediction_to_firestore(pred, probs.tolist(), x_img01, model_name="mnist_cnn")
+    except Exception as e:
+        print(f">> [FB] Error al guardar: {e}")
 
     return jsonify({
         "prediccion": pred,
         "prediction": pred,
         "probabilidades": probs.tolist(),
-        "probs": probs.tolist(),
-        "firebase": fb_status
+        "probs": probs.tolist()
     })
 
 # ====== ARRANQUE ======
@@ -216,6 +168,7 @@ if __name__ == "__main__":
     print(f">> [BOOT] MODEL_PATH: {MODEL_PATH} exists? {os.path.isfile(MODEL_PATH)}")
     print(">> [RUN] Lanzando servidor en http://127.0.0.1:5000")
     app.run(host="127.0.0.1", port=5000, debug=True)
+
 
 
 
